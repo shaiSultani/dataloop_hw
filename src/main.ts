@@ -2,10 +2,10 @@ import {StreetsService, Street, cities, city} from './israeliStreets';
 import { connect, Channel } from 'amqplib';
 import { MongoClient, Db } from 'mongodb';
 
-const DEFAULT_QUEUE = 'q1';
-const DEFAULT_DATABASE = 'streets';
-const DEFAULT_DB_URL = 'mongodb://localhost:27017';
-const DEFAULT_PUB_PORT = '5672';
+const QUEUE_NAME = 'q1';
+const DB_NAME = 'streets';
+const DB_URL = 'mongodb://localhost:27017';
+const PUBLISHER_PORT = '5672';
 
 let city: city | undefined = undefined;
 if (process.argv.length >= 3) {
@@ -22,31 +22,28 @@ if (!city) {
     process.exit(1);
 }
 
-// Connect to MongoDB
 let db: Db;
+let channel: Channel;
+let finish_pub = false;
 (async () => {
     try {
-        const client = await MongoClient.connect(DEFAULT_DB_URL);
-        db = client.db(DEFAULT_DATABASE);
-        console.log(`Connected to MongoDB ${DEFAULT_DATABASE}`);
+        const client = await MongoClient.connect(DB_URL);
+        db = client.db(DB_NAME);
+        console.log(`Connected to MongoDB ${DB_NAME}`);
     } catch (error) {
         console.error('Error connecting to MongoDB:', error);
         process.exit(1);
     }
-})();
-
-// Connect to RabbitMQ
-let channel: Channel;
-(async () => {
     try {
-        const conn = await connect(`amqp://guest:guest@localhost:${DEFAULT_PUB_PORT}`);
+        const conn = await connect(`amqp://guest:guest@localhost:${PUBLISHER_PORT}`);
         channel = await conn.createChannel();
-        await channel.assertQueue(DEFAULT_QUEUE);
-        console.log(`Connected to RabbitMQ queue ${DEFAULT_QUEUE}`);
+        await channel.assertQueue(QUEUE_NAME);
+        console.log(`Connected to RabbitMQ queue ${QUEUE_NAME}`);
     } catch (error) {
         console.error('Error connecting to RabbitMQ:', error);
         process.exit(1);
     }
+
     // Handle message from RabbitMQ
     const handleMessage = async (msg: any) => {
         const street: Street = JSON.parse(msg.content.toString());
@@ -60,12 +57,11 @@ let channel: Channel;
             channel.nack(msg); // Reject message and put it back in the queue
         }
     };
-    // Consume messages from RabbitMQ
-    await channel.consume(DEFAULT_QUEUE, handleMessage);
-})();
 
-// Publish streets to RabbitMQ
-(async () => {
+    // Consume messages from RabbitMQ
+    const consumer = await channel.consume(QUEUE_NAME, handleMessage);
+
+    // Publish streets to RabbitMQ
     const streets = await StreetsService.getStreetsInCity(city);
     for (const street of streets.streets) {
         const streetInfo = await StreetsService.getStreetInfoById(street.streetId);
@@ -80,7 +76,7 @@ let channel: Channel;
             street_name_status: streetInfo.street_name_status,
             official_code: streetInfo.official_code,
         });
-        channel.sendToQueue(DEFAULT_QUEUE, Buffer.from(message));
+        channel.sendToQueue(QUEUE_NAME, Buffer.from(message));
         console.log(`Message sent to queue: ${message}`);
     }
     console.log(`Publish finished`);
