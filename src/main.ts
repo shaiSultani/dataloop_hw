@@ -24,7 +24,6 @@ if (!city) {
 
 let db: Db;
 let channel: Channel;
-let finish_pub = false;
 (async () => {
     try {
         const client = await MongoClient.connect(DB_URL);
@@ -51,15 +50,15 @@ let finish_pub = false;
             // Insert street into MongoDB
             await db.collection('streets').insertOne(street);
             console.log(`Inserted ${street.street_name} in ${street.city_name}`);
-            channel.ack(msg); // Acknowledge message
+            channel.ack(msg);
         } catch (error) {
             console.error(error);
-            channel.nack(msg); // Reject message and put it back in the queue
+            channel.nack(msg);
         }
     };
 
     // Consume messages from RabbitMQ
-    const consumer = await channel.consume(QUEUE_NAME, handleMessage);
+    await channel.consume(QUEUE_NAME, handleMessage);
 
     // Publish streets to RabbitMQ
     const streets = await StreetsService.getStreetsInCity(city);
