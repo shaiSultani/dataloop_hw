@@ -4,7 +4,9 @@
   "description": "- Public repository with the data management team's technichal interview assignment inside    ---",
   "main": "main.js",
   "scripts": {
-    "test": "echo \\\"Error: no test specified\\\" && exit 1"
+    "test_typo": "node .\\dist\\main.js Yanob",
+    "test_real_city": "node .\\dist\\main.js 'Yanov'"
+
   },
   "repository": {
     "type": "git",

@@ -7,7 +7,7 @@ const DB_NAME = 'streets';
 const DB_URL = 'mongodb://localhost:27017';
 const PUBLISHER_PORT = '5672';
 
-let city: city | undefined = undefined;
+let city: city | undefined;
 if (process.argv.length >= 3) {
     const input_city = process.argv[2] as city;
     if (!(input_city in cities)){
@@ -41,7 +41,7 @@ async function consumeMessages() {
         }
         if (finished_publish){
             console.error('Finished Successfully');
-            process.exit(1);
+            process.exit(0);
         }
     };
 
@@ -90,8 +90,6 @@ async function publishMessages() {
         console.error('Error connecting to RabbitMQ:', error);
         process.exit(1);
     }
-    // Start consuming messages in parallel
     await consumeMessages();
-    // Start publishing messages in parallel
     await publishMessages();
 })();
